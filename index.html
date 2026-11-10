@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>@hersshayla — Simon "Ghost" Riley // ASCII Terminal</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JetBrains Mono Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      background-color: #000000;
+      color: #d4d4d8;
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* Subtle CRT scanline overlay */
+    .crt-overlay {
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.28) 50%
+      );
+      background-size: 100% 3px;
+      pointer-events: none;
+    }
+
+    /* Syntax Highlighting Colors */
+    .tok-kw { color: #ff7b72; font-weight: 500; }
+    .tok-fn { color: #d2a8ff; }
+    .tok-str { color: #a5d6ff; }
+    .tok-num { color: #79c0ff; }
+    .tok-cmt { color: #6e7681; font-style: italic; }
+    .tok-op { color: #ff7b72; }
+    .tok-var { color: #e6edf3; }
+    .tok-const { color: #ffa657; }
+
+    /* Active line highlight in code editor */
+    .code-line {
+      display: flex;
+      align-items: center;
+      min-height: 1.45rem;
+      padding: 0 0.75rem;
+      white-space: pre;
+      font-size: 11.5px;
+      line-height: 1.45rem;
+      transition: background-color 0.12s ease;
+    }
+    @media (min-width: 640px) {
+      .code-line {
+        font-size: 12.5px;
+        line-height: 1.55rem;
+        min-height: 1.55rem;
+      }
+    }
+    .code-line.active-line {
+      background: rgba(255, 46, 136, 0.10);
+    }
+    .line-num {
+      width: 2.2rem;
+      flex-shrink: 0;
+      color: #484f58;
+      text-align: right;
+      margin-right: 1rem;
+      font-size: 10.5px;
+    }
+
+    /* Blinking Pink Block Cursor */
+    .pink-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 13px;
+      background-color: #ff2e88;
+      vertical-align: middle;
+      margin-left: 2px;
+      box-shadow: 0 0 8px #ff2e88;
+      animation: blink 0.9s infinite;
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0.2; }
+    }
+  </style>
+</head>
+<body class="flex flex-col w-full h-full bg-black overflow-hidden relative">
+
+  <!-- CRT Scanline effect -->
+  <div class="crt-overlay fixed inset-0 z-30"></div>
+
+  <!-- ================================================================= -->
+  <!-- TOP PANEL (56% Height): 3D ASCII PORTRAIT FROM ghost_3d.jpg       -->
+  <!-- ================================================================= -->
+  <section id="canvas-container" class="relative w-full h-[56%] bg-black overflow-hidden select-none">
+    
+    <!-- Top Bar: Username (Left) + Recording Timer (Right) -->
+    <div class="absolute top-3 inset-x-4 z-20 flex items-center justify-between pointer-events-none">
+      <div class="flex items-center gap-2 pointer-events-auto bg-zinc-900/80 border border-zinc-800 rounded px-2.5 py-1 text-[11px] text-zinc-300 shadow-lg">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>@hersshayla</span>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-[11.5px] font-mono tracking-tight text-rose-400/95 bg-black/50 px-2 py-0.5 rounded">
+        <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-pulse"></span>
+        <span>t <span id="hud-timer">00.00</span>s</span>
+      </div>
+    </div>
+
+    <!-- Main Interactive ASCII Canvas -->
+    <canvas id="ascii-canvas" class="block w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+    <!-- Bottom Telemetry HUD -->
+    <div class="absolute bottom-0 inset-x-0 z-20 pointer-events-none px-4 pb-1.5 pt-4 bg-gradient-to-t from-black via-black/85 to-transparent">
+      <div class="flex flex-col gap-0.5 text-[11px] sm:text-xs font-mono leading-tight text-zinc-400">
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-300">@hersshayla - Task Force 141</span>
+          <span class="text-[10px] text-zinc-500 hidden sm:inline">3D ASCII // ghost_3d.jpg</span>
+        </div>
+        <div class="flex items-center gap-4 text-zinc-400">
+          <span>rotation <strong id="hud-rot" class="text-zinc-200 font-normal">000.00°</strong></span>
+          <span>glints <strong id="hud-glints" class="text-cyan-300 font-normal">680</strong></span>
+        </div>
+        <div class="flex items-center gap-4 text-zinc-400">
+          <span>letters <strong id="hud-letters" class="text-zinc-200 font-normal">1,840</strong></span>
+        </div>
+      </div>
+
+      <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px] sm:text-xs font-mono">
+        <div class="flex items-center gap-1.5 text-zinc-300">
+          <span class="text-emerald-400">$</span>
+          <span>py ghost_terminal.py</span>
+        </div>
+        <div class="flex items-center gap-2 text-zinc-400">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400/80"></span>
+          <span>running · <span id="hud-fps" class="text-zinc-200">30</span> fps</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================= -->
+  <!-- BOTTOM PANEL (44% Height): AUTO-SCROLLING IDE CODE WINDOW         -->
+  <!-- ================================================================= -->
+  <section class="relative w-full h-[44%] bg-[#07090d] border-t border-zinc-900 flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-1.5 bg-[#0b0e14] border-b border-zinc-900/90 text-[10.5px] text-zinc-500 font-mono shrink-0">
+      <div class="flex items-center gap-2 truncate">
+        <span class="w-2 h-2 rounded-full bg-rose-500/80"></span>
+        <span class="text-zinc-300">ghost_terminal.py</span>
+        <span class="text-zinc-600">—</span>
+        <span class="text-zinc-400 truncate">@hersshayla // ghost_3d.jpg</span>
+      </div>
+      <div class="text-zinc-600 shrink-0 hidden sm:block">UTF-8 · Python 3.12</div>
+    </div>
+
+    <div id="code-viewport" class="relative flex-1 overflow-hidden py-2">
+      <div id="code-scroll-track" class="will-change-transform"></div>
+      <div class="pointer-events-none absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-[#07090d] to-transparent"></div>
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-[#07090d] to-transparent"></div>
+    </div>
+  </section>
+
+  <!-- ================================================================= -->
+  <!-- APPLICATION LOGIC: LOAD ghost_3d.jpg & RENDER 3D ASCII            -->
+  <!-- ================================================================= -->
+  <script>
+    window.onload = function () {
+      const canvas = document.getElementById('ascii-canvas');
+      const ctx = canvas.getContext('2d');
+      const container = document.getElementById('canvas-container');
+
+      const hudTimer = document.getElementById('hud-timer');
+      const hudRot = document.getElementById('hud-rot');
+      const hudGlints = document.getElementById('hud-glints');
+      const hudLetters = document.getElementById('hud-letters');
+      const hudFps = document.getElementById('hud-fps');
+
+      const SAMPLE_W = 112;
+      const SAMPLE_H = 84;
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = SAMPLE_W;
+      offCanvas.height = SAMPLE_H;
+      const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+
+      const ASCII_CHARS = " .,:;irsXA253hMHGS#9B&@";
+      const GLINT_CHARS = ["*", "+", "x", "#"];
+
+      let points = [];
+      let userYaw = 0;
+      let userPitch = 0;
+      let targetYaw = 0;
+      let targetPitch = 0;
+      let isDragging = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      function buildPointCloudFromImageData(imgElem) {
+        offCtx.fillStyle = '#000000';
+        offCtx.fillRect(0, 0, SAMPLE_W, SAMPLE_H);
+
+        const scale = Math.min(SAMPLE_W / imgElem.width, SAMPLE_H / imgElem.height);
+        const dw = imgElem.width * scale;
+        const dh = imgElem.height * scale;
+        const dx = (SAMPLE_W - dw) / 2;
+        const dy = (SAMPLE_H - dh) / 2;
+
+        offCtx.drawImage(imgElem, dx, dy, dw, dh);
+
+        const imgData = offCtx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
+        points = [];
+
+        for (let y = 0; y < SAMPLE_H; y++) {
+          for (let x = 0; x < SAMPLE_W; x++) {
+            const idx = (y * SAMPLE_W + x) * 4;
+            const r = imgData[idx];
+            const g = imgData[idx + 1];
+            const b = imgData[idx + 2];
+            let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+
+            if (lum < 0.055) continue;
+
+            const nx = (x / (SAMPLE_W - 1)) * 2.0 - 1.0;
+            const ny = (y / (SAMPLE_H - 1)) * 2.0 - 1.0;
+
+            const r2 = nx * nx * 0.8 + ny * ny * 0.8;
+            const dome_z = Math.sqrt(Math.max(0.0, 1.0 - r2)) * 0.45;
+            const nz = dome_z + lum * 0.35 - 0.30;
+
+            const normLen = Math.hypot(nx, ny, nz + 0.65) || 1.0;
+            const vnx = nx / normLen, vny = ny / normLen, vnz = (nz + 0.65) / normLen;
+
+            const glintSeed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            const seedFrac = glintSeed - Math.floor(glintSeed);
+
+            points.push({ x: nx, y: ny, z: nz, lum, vnx, vny, vnz, seed: seedFrac });
+          }
+        }
+      }
+
+      // Load ghost_3d.jpg automatically from same directory
+      const ghostImg = new Image();
+      ghostImg.crossOrigin = "anonymous";
+      ghostImg.onload = function () {
+        buildPointCloudFromImageData(ghostImg);
+      };
+      ghostImg.onerror = function () {
+        console.error("ghost_3d.jpg yuklanmadi. Fayl index.html bilan bir papkada bo‘lishi kerak.");
+        // Fallback: draw text if image not found
+        offCtx.fillStyle = '#ffffff';
+        offCtx.font = 'bold 12px monospace';
+        offCtx.textAlign = 'center';
+        offCtx.fillText("GHOST_BW.JPG", SAMPLE_W / 2, SAMPLE_H / 2);
+        buildPointCloudFromImageData(offCanvas);
+      };
+      ghostImg.src = "ghost_3d.jpg";
+
+      // Pointer interactions
+      function onPointerDown(x, y) { isDragging = true; lastX = x; lastY = y; }
+      function onPointerMove(x, y) {
+        const rect = canvas.getBoundingClientRect();
+        const normX = ((x - rect.left) / rect.width) * 2 - 1;
+        const normY = ((y - rect.top) / rect.height) * 2 - 1;
+        if (isDragging) {
+          targetYaw += (x - lastX) * 0.012;
+          targetPitch = Math.max(-0.45, Math.min(0.45, targetPitch + (y - lastY) * 0.008));
+          lastX = x; lastY = y;
+        } else {
+          targetYaw = normX * 0.35;
+          targetPitch = normY * 0.22;
+        }
+      }
+      function onPointerUp() { isDragging = false; }
+
+      canvas.addEventListener('mousedown', e => onPointerDown(e.clientX, e.clientY));
+      window.addEventListener('mousemove', e => onPointerMove(e.clientX, e.clientY));
+      window.addEventListener('mouseup', onPointerUp);
+      canvas.addEventListener('touchstart', e => { if (e.touches.length > 0) onPointerDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+      window.addEventListener('touchmove', e => { if (e.touches.length > 0) onPointerMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+      window.addEventListener('touchend', onPointerUp);
+
+      // Code Editor Scrolling Lines
+      const codeLinesData = [
+        `<span class="tok-str">"""Simon 'Ghost' Riley — ghost_3d.jpg 3D ASCII Terminal"""</span>`,
+        `<span class="tok-kw">import</span> os, sys, time, math`,
+        `<span class="tok-kw">import</span> numpy <span class="tok-kw">as</span> np`,
+        `<span class="tok-kw">from</span> PIL <span class="tok-kw">import</span> Image`,
+        ``,
+        `<span class="tok-const">ASCII_CHARS</span> = <span class="tok-str">" .,:;+i1tfLCG08@#W$"</span>`,
+        `<span class="tok-const">INSTAGRAM</span> = <span class="tok-str">"@hersshayla"</span>`,
+        ``,
+        `<span class="tok-kw">def</span> <span class="tok-fn">load_point_cloud</span>(image_path=<span class="tok-str">"ghost_3d.jpg"</span>):`,
+        `    img = Image.open(image_path).convert(<span class="tok-str">"L"</span>)`,
+        `    pixels = np.array(img, dtype=np.float32) / <span class="tok-num">255.0</span>`,
+        `    points = []`,
+        `    <span class="tok-kw">for</span> y <span class="tok-kw">in</span> range(img.height):`,
+        `        <span class="tok-kw">for</span> x <span class="tok-kw">in</span> range(img.width):`,
+        `            lum = float(pixels[y, x])`,
+        `            <span class="tok-kw">if</span> lum < <span class="tok-num">0.08</span>: <span class="tok-kw">continue</span>`,
+        `            nx = (x / (img.width - <span class="tok-num">1</span>)) * <span class="tok-num">2.0</span> - <span class="tok-num">1.0</span>`,
+        `            ny = (y / (img.height - <span class="tok-num">1</span>)) * <span class="tok-num">2.0</span> - <span class="tok-num">1.0</span>`,
+        `            nz = math.sqrt(max(<span class="tok-num">0.0</span>, <span class="tok-num">1.0</span> - nx**<span class="tok-num">2</span>)) * <span class="tok-num">0.45</span> + lum * <span class="tok-num">0.35</span>`,
+        `            points.append((nx, ny, nz, lum))`,
+        `    <span class="tok-kw">return</span> points`,
+        ``,
+        `<span class="tok-kw">def</span> <span class="tok-fn">main</span>():`,
+        `    points = load_point_cloud(<span class="tok-str">"ghost_3d.jpg"</span>)`,
+        `    <span class="tok-kw">while</span> <span class="tok-const">True</span>:`,
+        `        t = time.time()`,
+        `        yaw = math.sin(t * <span class="tok-num">1.1</span>) * <span class="tok-num">0.55</span>`,
+        `        pitch = math.sin(t * <span class="tok-num">0.6</span>) * <span class="tok-num">0.15</span>`,
+        `        render_ascii_frame(points, yaw, pitch)`
+      ];
+
+      const codeTrack = document.getElementById('code-scroll-track');
+      const totalCodeLines = [...codeLinesData, ...codeLinesData];
+      codeTrack.innerHTML = totalCodeLines.map((html, idx) => {
+        const lineNum = (idx % codeLinesData.length) + 1;
+        return `<div class="code-line" data-idx="${idx}"><span class="line-num">${lineNum}</span><span class="code-content">${html}</span></div>`;
+      }).join('');
+
+      const lineElements = codeTrack.querySelectorAll('.code-line');
+      let currentActiveIdx = -1;
+
+      let viewW = 0, viewH = 0;
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        viewW = container.clientWidth;
+        viewH = container.clientHeight;
+        canvas.width = Math.floor(viewW * dpr);
+        canvas.height = Math.floor(viewH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      const startTime = performance.now();
+      let lastFpsTime = startTime;
+      let frameCount = 0;
+       let lastDraw = 0;
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+        if (now - lastDraw < 33) return;
+        lastDraw = now;
+        const elapsed = (now - startTime) * 0.001;
+        frameCount++;
+
+        if (now - lastFpsTime >= 400) {
+          hudFps.textContent = Math.min(60, Math.round((frameCount * 1000) / (now - lastFpsTime)));
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+
+        hudTimer.textContent = elapsed.toFixed(2).padStart(5, '0');
+
+        userYaw += (targetYaw - userYaw) * 0.08;
+        userPitch += (targetPitch - userPitch) * 0.08;
+
+        const yaw = Math.sin(elapsed * 0.75) * 0.42 + userYaw;
+        const pitch = Math.sin(elapsed * 0.55) * 0.10 + userPitch;
+
+        const deg = (((yaw * 180) / Math.PI) % 360 + 360) % 360;
+        hudRot.textContent = deg.toFixed(2).padStart(6, '0') + '°';
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, viewW, viewH);
+
+        const cy = Math.cos(yaw), sy = Math.sin(yaw);
+        const cp = Math.cos(pitch), sp = Math.sin(pitch);
+        const rimX = Math.cos(elapsed * 1.35), rimY = -0.25, rimZ = Math.sin(elapsed * 1.35);
+
+        const usableH = viewH * 0.78;
+        const centerX = viewW * 0.5;
+        const centerY = viewH * 0.44;
+        const scale = Math.min(viewW * 0.44, usableH * 0.48);
+
+        const fontSize = Math.max(7, Math.min(11.5, Math.floor(scale / 21)));
+        ctx.font = `${fontSize}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        let lettersCount = 0;
+        let glintsCount = 0;
+
+         // High-density ASCII glyph raster. Every visible pixel is drawn as a
+         // terminal character; the original photograph is NEVER painted.
+         const cellW = Math.min((viewW * 0.92) / SAMPLE_W, (viewH * 0.88) / (SAMPLE_H * 1.63));
+         const cellH = cellW * 1.63;
+         const startX = (viewW - SAMPLE_W * cellW) / 2;
+         const startY = (viewH - SAMPLE_H * cellH) / 2 - viewH * 0.015;
+         const fontPx = Math.max(2.5, cellH * 0.96);
+         ctx.font = `${fontPx}px "JetBrains Mono", monospace`;
+         ctx.textAlign = 'center';
+         ctx.textBaseline = 'middle';
+         // A shallow 3D depth displacement makes the ASCII surface breathe.
+         // Keeping the motion small prevents gaps and retains facial detail.
+         const sway = Math.sin(elapsed * 0.9) * 0.13 + userYaw * 0.20;
+         const tilt = Math.sin(elapsed * 0.62) * 0.045 + userPitch * 0.10;
+         const cosS = Math.cos(sway), sinS = Math.sin(sway);
+         const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+         const charset = ASCII_CHARS;
+         let count = 0;
+         let sparkCount = 0;
+         for (const p of points) {
+           const col = Math.round((p.x + 1) * (SAMPLE_W - 1) / 2);
+           const row = Math.round((p.y + 1) * (SAMPLE_H - 1) / 2);
+           // Use pixel luminance for precise skull shape, eyes and teeth.
+           const phase = elapsed * 19 + p.seed * 23 + row * 0.13;
+           const glyphShift = Math.floor(phase) % 5;
+           const baseIndex = Math.min(charset.length - 1, Math.floor(Math.pow(p.lum, 0.78) * (charset.length - 1)));
+           const index = Math.max(0, Math.min(charset.length - 1, baseIndex + (glyphShift === 0 ? 1 : glyphShift === 3 ? -1 : 0)));
+           const depth = p.z * 0.26;
+           const xRot = p.x * cosS + depth * sinS;
+           const zRot = -p.x * sinS + depth * cosS;
+           const yRot = p.y * cosT - zRot * sinT;
+           const x = startX + (xRot + 1) * (SAMPLE_W - 1) * cellW / 2 + cellW / 2;
+           const y = startY + (yRot + 1) * (SAMPLE_H - 1) * cellH / 2 + cellH / 2;
+           const glint = p.lum > 0.55 && Math.sin(phase * 0.72) > 0.992;
+           const flicker = 0.87 + 0.13 * Math.sin(phase * 0.38);
+           const light = Math.floor(Math.min(255, (120 + p.lum * 135) * flicker));
+           ctx.fillStyle = glint ? '#bdf4ff' : `rgb(${light},${light},${light})`;
+           ctx.fillText(glint ? GLINT_CHARS[glyphShift % GLINT_CHARS.length] : charset[index], x, y);
+           count++;
+           if (glint) sparkCount++;
+         }
+         lettersCount = count;
+         glintsCount = sparkCount;
+
+        hudLetters.textContent = lettersCount.toLocaleString('en-US');
+        hudGlints.textContent = glintsCount.toLocaleString('en-US');
+
+        // Code Auto-scroll
+        const firstLineEl = lineElements[0];
+        const lineHeight = firstLineEl ? firstLineEl.offsetHeight : 22;
+        const singleBlockHeight = codeLinesData.length * lineHeight;
+        const scrollPx = (elapsed * 26) % singleBlockHeight;
+
+        codeTrack.style.transform = `translateY(-${scrollPx.toFixed(1)}px)`;
+
+        const focusLineIdx = Math.floor((scrollPx + lineHeight * 4) / lineHeight) % totalCodeLines.length;
+        if (focusLineIdx !== currentActiveIdx && lineElements[focusLineIdx]) {
+          if (currentActiveIdx >= 0 && lineElements[currentActiveIdx]) {
+            lineElements[currentActiveIdx].classList.remove('active-line');
+            const oldCursor = lineElements[currentActiveIdx].querySelector('.pink-cursor');
+            if (oldCursor) oldCursor.remove();
+          }
+          currentActiveIdx = focusLineIdx;
+          const activeEl = lineElements[currentActiveIdx];
+          activeEl.classList.add('active-line');
+          const cursorSpan = document.createElement('span');
+          cursorSpan.className = 'pink-cursor';
+          activeEl.appendChild(cursorSpan);
+        }
+
+      }
+
+       requestAnimationFrame(animate);
+    };
+  </script>
+</body>
+</html>
